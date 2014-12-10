@@ -1,4 +1,4 @@
-
+require_relative 'marcxml_basemap_patch'
 
 class YaleMarcXMLAccessionConverter < MarcXMLConverter
   def self.import_types(show_hidden = false)
@@ -216,12 +216,12 @@ YaleMarcXMLAccessionConverter.configure do |config|
 
     # date of publication
     config["/record"][:map]["datafield[@tag='#{tag}']/subfield[@code='c']"] = -> accession, node {
-      
+
       date_begin, date_end = nil
       date_type = 'single'
-      
+
       if  node.inner_text.strip =~ /^([0-9]{4})-([0-9]{4})$/
-        date_begin,date_end = node.inner_text.strip.split("-")  
+        date_begin,date_end = node.inner_text.strip.split("-")
         date_type = "range"
       end
 
@@ -273,19 +273,10 @@ YaleMarcXMLAccessionConverter.configure do |config|
 
       accession.accession_date = Time.now.to_s.sub(/\s.*/, '')
 
-      Log.debug("CONTENT_DESCRIPTIONS")
-      Log.debug(accession['_content_descriptions'])
-      
       if accession['_content_descriptions']
         accession.content_description = accession['_content_descriptions'].sort.map {|e| e[1]}.join(' ')
       end
     }
 
-
-
-  end      
-
+  end
 end
-
-
-
