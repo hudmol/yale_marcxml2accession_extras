@@ -115,8 +115,35 @@ YaleMarcXMLAccessionConverter.configure do |config|
     end
   }
 
+  # a good example to consider when refactoring
+  # we want to rerout 130 somewhere else, but it is
+  # mapped in core as part of a complex xpath
+  config["/record"][:map]["datafield[@tag='630' or @tag='430']"] = config["/record"][:map]["datafield[@tag='630' or @tag='130' or @tag='430']"]
 
-  # Yale Extension stuff:
+  config["/record"][:map].delete("datafield[@tag='630' or @tag='130' or @tag='430']")
+
+
+  # and another
+  # the last xpath just has a selector because that key is already taken
+  # it would be better to let a path be mapped more than once
+  # also, this should just be fixed in core at some point
+  config["/record"][:map]["datafield[@tag='100' or @tag='700'][@ind1='0' or @ind1='1']"][:map]["self::datafield[@tag]"] = -> agent, node {
+    agent['_role'] = 'creator'
+  }
+
+
+  # OCLC numbers
+  config["/record"][:map]["controlfield[@tag='001']"] = -> accession, node {
+    oclcid = node.inner_text.sub(/^[a-zA-Z]*/, '')
+    Log.debug("OCLCID " + oclcid)
+    if oclcid =~ /^\d+$/
+      accession.user_defined ||= ASpaceImport::JSONModel(:user_defined).new
+      unless accession.user_defined['real_1']
+        accession.user_defined['real_1'] = "%0.2f" % oclcid.to_f
+      end
+    end
+  }
+
 
   # user_defined fields
   {
@@ -134,10 +161,13 @@ YaleMarcXMLAccessionConverter.configure do |config|
 
     config["/record"][:map][path] = -> accession, node {
       accession.user_defined ||= ASpaceImport::JSONModel(:user_defined).new
-      if accession.user_defined[target]
-        accession.user_defined[target] += " #{node.inner_text}"
-      else
-        accession.user_defined[target] = node.inner_text
+
+      node.xpath("subfield").each do |sf|
+        if accession.user_defined[target]
+          accession.user_defined[target] += " #{sf.inner_text}"
+        else
+          accession.user_defined[target] = sf.inner_text
+        end
       end
     }
   end
@@ -146,7 +176,7 @@ YaleMarcXMLAccessionConverter.configure do |config|
   %w(210 222 240 242 245 246).each do |tag|
     config["/record"][:map]["datafield[@tag='#{tag}']"] = -> accession, node {
       accession['_titles'] ||= {}
-      accession['_titles'][tag] = MarcXMLConverter.subfield_template("{$a : }{$b }{[$h] }{$k , }{$n , }{$p , }{$s }{/ $c}", node)
+      accession['_titles'][tag] = MarcXMLConverter.subfield_template("{$a : }{$b }{$f }{[$h] }{$k , }{$n , }{$p , }{$s }{/ $c}", node)
 
       if tag == '245'
         expression = MarcXMLConverter.concatenate_subfields(%w(f g), node, '-')

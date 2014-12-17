@@ -1,4 +1,4 @@
-if ASConstants.VERSION =~ /^[v|V]\.1\.1\.0/
+if ASConstants.VERSION =~ /^[v|V]\.?1\.1\.0/
 
   MarcXMLBaseMap.module_eval do
 
