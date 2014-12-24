@@ -139,17 +139,19 @@ YaleMarcXMLAccessionConverter.configure do |config|
     if oclcid =~ /^\d+$/
       accession.user_defined ||= ASpaceImport::JSONModel(:user_defined).new
       unless accession.user_defined['real_1']
-        accession.user_defined['real_1'] = "%0.2f" % oclcid.to_f
+        accession.user_defined['real_1'] = "%0.0f" % oclcid.to_f
       end
     end
   }
+
+  # 099 -> general note
+  config["/record"][:map]["datafield[@tag='099']"] = :general_note
 
 
   # user_defined fields
   {
     '020' => 'string_4',
     '022' => 'string_4',
-    '099' => 'string_2',
     '130' => 'text_2',
     # ['260', '$a'] => 'string_3',
     # ['264', '$a'] => 'string_3',
@@ -176,15 +178,16 @@ YaleMarcXMLAccessionConverter.configure do |config|
   %w(210 222 240 242 245 246).each do |tag|
     config["/record"][:map]["datafield[@tag='#{tag}']"] = -> accession, node {
       accession['_titles'] ||= {}
-      accession['_titles'][tag] = MarcXMLConverter.subfield_template("{$a : }{$b }{$f }{[$h] }{$k , }{$n , }{$p , }{$s }{/ $c}", node)
 
       if tag == '245'
+        accession['_titles'][tag] = MarcXMLConverter.subfield_template("{$a : }{$b }{$f }{[$h] }{$k , }{$n , }{$p , }{$s }{/ $c}", node)
+
         expression = MarcXMLConverter.concatenate_subfields(%w(f g), node, '-')
         unless expression.empty?
           if accession.dates[0]
             accession.dates[0]['expression'] = expression
           else
-            make(:date)  do |date|
+            make(:date) do |date|
               date.label = 'creation'
               date.date_type = 'inclusive'
               date.expression = expression
@@ -194,9 +197,16 @@ YaleMarcXMLAccessionConverter.configure do |config|
         else
           accession['_needs_date'] = true
         end
+      else
+        node.xpath("subfield").each do |sf|
+          accession['_titles'][tag] ||= ""
+          accession['_titles'][tag] += " " unless accession['_titles'][tag].empty?
+          accession['_titles'][tag] += sf.inner_text
+        end
       end
     }
   end
+
 
   # content_description
   %w(250 254 255 256 257 258 306 340 342 343 351 352 500 501 502 504 507 508 511 513 514 518 520 524 530 533 534 535 536 538 544 546 555 562 563 580 581 590 591 592 593 594 595 596 597 598 599).each do |tag|
